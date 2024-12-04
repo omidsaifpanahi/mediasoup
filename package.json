@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/app.js",
-    "mon": "nodemon src/app.js",
+    "dev": " SET NODE_ENV=myhost &  nodemon src/app.js",
+    "mon": "export NODE_ENV=development && nodemon src/app.js",
     "docker-build": "docker build --tag dirvann/mediasoup-video-rooms .",
     "docker-run": "docker run --name dirvann-mediasoup-rooms -p 10000-10100:10000-10100 -p 3016:3016 dirvann/mediasoup-video-rooms",
     "docker-start": "docker start dirvann-mediasoup-rooms",
