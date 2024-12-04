@@ -1,41 +1,80 @@
-const express = require('express')
+'use strict';
 
-const app = express()
-const https = require('httpolyglot')
-const fs = require('fs')
-const mediasoup = require('mediasoup')
-const config = require('./config')
-const path = require('path')
-const Room = require('./Room')
-const Peer = require('./Peer')
+// check environment  --------------------------------------------------------------------------------------------------
 
-const options = {
-  key: fs.readFileSync(path.join(__dirname, config.sslKey), 'utf-8'),
-  cert: fs.readFileSync(path.join(__dirname, config.sslCrt), 'utf-8')
+if (!process.env['NODE_ENV']) {
+  throw new Error('Environment variable NODE_ENV is missing');
+} else if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "development") {
+  //'STREAM_CLIENT_URL', 'SENTRY_DSN'
+  ['SERVER_PORT'].forEach((name) => {
+    if (!process.env[name]) {
+      throw new Error(`Environment variable ${name} is missing`);
+    }
+  });
 }
 
-const httpsServer = https.createServer(options, app)
-const io = require('socket.io')(httpsServer)
+// packages ------------------------------------------------------------------------------------------------------------
+
+const fs        = require('fs');
+const path      = require('path');
+const https     = require('httpolyglot');
+const express   = require('express');
+const socketIO  = require("socket.io");
+const mediasoup = require('mediasoup');
+
+// modules -------------------------------------------------------------------------------------------------------------
+
+const config    = require('./config');
+const logger    = require("./logger");
+const Room      = require('./Room');
+const Peer      = require('./Peer');
+
+// const ---------------------------------------------------------------------------------------------------------------
+const app       = express();
+let options     = {};
+
+if (process.env.NODE_ENV === "myhost") {
+  options   = {
+    key: fs.readFileSync(path.join(__dirname, config.sslKey), 'utf-8'),
+    cert: fs.readFileSync(path.join(__dirname, config.sslCrt), 'utf-8')
+  };
+}
+
+
+const httpsServer = https.createServer(options, app);
+const io          = socketIO(httpsServer,{
+  path: '/webcam/',
+  serveClient: false,
+  log: false,
+  cors: {
+    origin: "*",
+    credentials: true,
+    methods: ["GET", "POST"]
+  }
+});
 
 app.use(express.static(path.join(__dirname, '..', 'public')))
 
-httpsServer.listen(config.listenPort, () => {
-  console.log('Listening on https://' + config.listenIp + ':' + config.listenPort)
-})
 
-// all mediasoup workers
-let workers = []
-let nextMediasoupWorkerIdx = 0
+// For Devops-----------------------------------------------------------------------------------------------------------
 
+app.get(["/readiness", "/liveness"], (_, res) => {
+  res.json({ data: "OK!" });
+});
+
+// Global variables ---------------------------------------------------------------------------------------------------------------
+
+let workers                = []; // all mediasoup workers
+let roomList               = new Map();
 /**
  * roomList
  * {
- *  room_id: Room {
+ *  roomId: Room {
  *      id:
  *      router:
  *      peers: {
  *          id:,
- *          name:,
+ *          userId:,
  *          master: [boolean],
  *          transports: [Map],
  *          producers: [Map],
@@ -45,37 +84,32 @@ let nextMediasoupWorkerIdx = 0
  *  }
  * }
  */
-let roomList = new Map()
 
-;(async () => {
-  await createWorkers()
-})()
+// Start mediasoup -----------------------------------------------------------------------------------------------------
 
-async function createWorkers() {
-  let { numWorkers } = config.mediasoup
-
-  for (let i = 0; i < numWorkers; i++) {
-    let worker = await mediasoup.createWorker({
+// createWorkers
+(async () => {
+  for (let i = 0; i < config.mediasoup.numWorkers; i++) {
+    const worker = await mediasoup.createWorker({
       logLevel: config.mediasoup.worker.logLevel,
       logTags: config.mediasoup.worker.logTags,
       rtcMinPort: config.mediasoup.worker.rtcMinPort,
-      rtcMaxPort: config.mediasoup.worker.rtcMaxPort
-    })
-
-    worker.on('died', () => {
-      console.error('mediasoup worker died, exiting in 2 seconds... [pid:%d]', worker.pid)
-      setTimeout(() => process.exit(1), 2000)
-    })
-    workers.push(worker)
+      rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
+    });
+    worker.on("died", () => {
+      logger.error(`Worker died [pid:${worker.pid}]`);
+      process.exit(1);
+    });
+    workers.push(worker);
 
     // log worker resource usage
     /*setInterval(async () => {
             const usage = await worker.getResourceUsage();
 
-            console.info('mediasoup Worker resource usage [pid:%d]: %o', worker.pid, usage);
+            logger.info('mediasoup Worker resource usage [pid:%d]: %o', worker.pid, usage);
         }, 120000);*/
   }
-}
+})
 
 io.on('connection', (socket) => {
   socket.on('createRoom', async ({ room_id }, callback) => {
@@ -237,28 +271,10 @@ io.on('connection', (socket) => {
   })
 })
 
-// TODO remove - never used?
-function room() {
-  return Object.values(roomList).map((r) => {
-    return {
-      router: r.router.id,
-      peers: Object.values(r.peers).map((p) => {
-        return {
-          name: p.name
-        }
-      }),
-      id: r.id
-    }
+httpsServer.listen(config.listenPort, () => {
+  logger.info('Server', {
+    listening: `https://${config.listenIp}:${config.listenPort}?roomId=1&userId=1`,
+    mediasoup_server: mediasoup.version,
+    node_version: process.versions.node,
   })
-}
-
-/**
- * Get next mediasoup Worker.
- */
-function getMediasoupWorker() {
-  const worker = workers[nextMediasoupWorkerIdx]
-
-  if (++nextMediasoupWorkerIdx === workers.length) nextMediasoupWorkerIdx = 0
-
-  return worker
-}
+});

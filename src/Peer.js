@@ -1,3 +1,4 @@
+const logger = require("./logger");
 module.exports = class Peer {
   constructor(socket_id, name) {
     this.id = socket_id
@@ -28,14 +29,11 @@ module.exports = class Peer {
 
     this.producers.set(producer.id, producer)
 
-    producer.on(
-      'transportclose',
-      function () {
-        console.log('Producer transport close', { name: `${this.name}`, consumer_id: `${producer.id}` })
-        producer.close()
-        this.producers.delete(producer.id)
-      }.bind(this)
-    )
+    producer.on('transportclose', () => {
+      logger.info('Producer transport close', { name: `${this.name}`, consumer_id: `${producer.id}` })
+      producer.close()
+      this.producers.delete(producer.id)
+    })
 
     return producer
   }
@@ -51,7 +49,7 @@ module.exports = class Peer {
         paused: false //producer.kind === 'video',
       })
     } catch (error) {
-      console.error('Consume failed', error)
+      logger.error('Consume failed', error)
       return
     }
 
@@ -60,17 +58,14 @@ module.exports = class Peer {
         spatialLayer: 2,
         temporalLayer: 2
       })
-    }
+    } //https://www.w3.org/TR/webrtc-svc/
 
     this.consumers.set(consumer.id, consumer)
 
-    consumer.on(
-      'transportclose',
-      function () {
-        console.log('Consumer transport close', { name: `${this.name}`, consumer_id: `${consumer.id}` })
-        this.consumers.delete(consumer.id)
-      }.bind(this)
-    )
+    consumer.on('transportclose', () => {
+      logger.info('Consumer transport close', { name: `${this.name}`, consumer_id: `${consumer.id}` })
+      this.consumers.delete(consumer.id)
+    })
 
     return {
       consumer,
@@ -89,7 +84,7 @@ module.exports = class Peer {
     try {
       this.producers.get(producer_id).close()
     } catch (e) {
-      console.warn(e)
+      logger.error(e)
     }
 
     this.producers.delete(producer_id)
