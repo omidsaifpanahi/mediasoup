@@ -20,6 +20,7 @@
     "httpolyglot": "^0.1.2",
     "mediasoup": "^3.14.1",
     "mediasoup-client": "^3.7.7",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "winston": "^3.17.0"
   }
 }
