@@ -21,3 +21,10 @@ This project is featured on the [mediasoup examples page](https://mediasoup.org/
 notes : Best to run the project on a linux system as the mediasoup installation could have issues by installing on windows. If you have a windows system consider installing WSL to be able to run it.
 
 [installing wsl on windows 10](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
+
+-----------------------------
+In mediasoup3-record-demo branch, I tried to use the experiences of the following project:
+
+
+[mediasoup3-record-demo](https://github.com/ethand91/mediasoup3-record-demo)
+
