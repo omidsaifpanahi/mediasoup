@@ -12,7 +12,7 @@ body {
 .vid {
   border-radius: 10px;
   cursor: pointer;
-  width: 320px;
-  height: 180px;
+  /*width: 320px;*/
+  /*height: 180px;*/
   object-fit: cover;
 }

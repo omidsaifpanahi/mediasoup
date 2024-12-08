@@ -17,56 +17,54 @@
             <div  class="row">
                 <div class="col-md-12 col-lg-3">
                     <div class="row">
-                        <div class=" gap-2 mx-auto" id="control">
-                            <button
-                                    id="startAudioButton"
-                                    class="btn btn-primary"
-                                    onclick="rc.produce(RoomClient.mediaType.audio, audioSelect.value)"
-                            >
-                                <span class="fa-stack">
-                                  <i class="fas fa-volume-up fa-stack-1x"></i>
-                                  <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
-                                </span>
-                            </button>
-                            <button id="stopAudioButton" class="btn btn-primary d-none" onclick="rc.closeProducer(RoomClient.mediaType.audio)">
-                                <span class="fa-stack">
-                                  <i class="fas fa-volume-up fa-stack-1x"></i>
-                                </span>
-                            </button>
-                            <button
-                                    id="startVideoButton"
-                                    class="btn btn-primary"
-                                    onclick="rc.produce(RoomClient.mediaType.video, videoSelect.value)"
-                            >
-                                <span class="fa-stack">
-                                  <i class="fas fa-camera fa-stack-1x"></i>
-                                  <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
-                               </span>
-                            </button>
-                            <button id="stopVideoButton" class="d-none btn btn-primary" onclick="rc.closeProducer(RoomClient.mediaType.video)">
-                                <span class="fa-stack">
-                                  <i class="fas fa-camera fa-stack-1x"></i>
-                                </span>
-                            </button>
+                        <div class="col-6 col-lg-12 gap-2 mx-auto" id="control">
+                            <div class="btn-group" role="group" aria-label="Basic outlined example">
+                                <button
+                                        id="startAudioButton"
+                                        class="btn btn-primary btn-outline-dark"
+                                        onclick="rc.produce(RoomClient.mediaType.audio, audioSelect.value)"
+                                >
+                                    <span class="fa-stack">
+                                      <i class="fas fa-volume-up fa-stack-1x"></i>
+                                      <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
+                                    </span>
+                                </button>
+                                <button id="stopAudioButton" class="btn btn-primary btn-outline-dark d-none" onclick="rc.closeProducer(RoomClient.mediaType.audio)">
+                                    <span class="fa-stack">
+                                      <i class="fas fa-volume-up fa-stack-1x"></i>
+                                    </span>
+                                </button>
+                                <button
+                                        id="startVideoButton"
+                                        class="btn btn-primary btn-outline-dark"
+                                        onclick="rc.produce(RoomClient.mediaType.video, videoSelect.value)"
+                                >
+                                    <span class="fa-stack">
+                                      <i class="fas fa-camera fa-stack-1x"></i>
+                                      <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
+                                   </span>
+                                </button>
+                                <button id="stopVideoButton" class="d-none btn btn-primary btn-outline-dark" onclick="rc.closeProducer(RoomClient.mediaType.video,true)">
+                                    <span class="fa-stack">
+                                      <i class="fas fa-camera fa-stack-1x"></i>
+                                    </span>
+                                </button>
 
-                            <button id="startScreenButton" class="btn btn-primary" onclick="rc.produce(RoomClient.mediaType.screen)">
-                                <span class="fa-stack">
-                                  <i class="fas fa-desktop fa-stack-1x"></i>
-                                  <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
-                               </span>
-                            </button>
-                            <button id="stopScreenButton" class="d-none btn btn-primary" onclick="rc.closeProducer(RoomClient.mediaType.screen)">
-                                <span class="fa-stack">
-                                  <i class="fas fa-desktop fa-stack-1x"></i>
-                                </span>
-                            </button>
-                            <br />
+                                <button id="startScreenButton" class="btn btn-primary btn-outline-dark" onclick="rc.produce(RoomClient.mediaType.screen)">
+                                    <span class="fa-stack">
+                                      <i class="fas fa-desktop fa-stack-1x"></i>
+                                      <i class="fas fa-ban fa-stack-2x" style="color:Tomato"></i>
+                                   </span>
+                                </button>
+                                <button id="stopScreenButton" class="d-none btn btn-primary btn-outline-dark" onclick="rc.closeProducer(RoomClient.mediaType.screen)">
+                                    <span class="fa-stack">
+                                      <i class="fas fa-desktop fa-stack-1x"></i>
+                                    </span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <br>
-                    <div class="row">
-                        <div class="col-12" id="localMedia">
-                        </div>
+                        <canvas class="col-6 col-lg-12" id="croppedCanvas"></canvas>
+                        <div class="col-6 col-lg-12" id="localMedia"></div>
                     </div>
                     <div class="row d-none">
                         <div class="col-12" id="devicesList">
@@ -80,8 +78,7 @@
                 </div>
                 <div class="col-md-12 col-lg-9 mt-5">
                     <br>
-                    <div class="row" id="remoteVideos">
-                    </div>
+                    <div class="row" id="remoteVideos"></div>
                     <div id="remoteAudios"></div>
                 </div>
             </div>
