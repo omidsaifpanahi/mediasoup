@@ -212,152 +212,173 @@ class RoomClient {
 
   async produce(type, deviceId = null) {
     let mediaConstraints = {};
-    let audio            = false;
-    let screen           = false;
+    let isAudio          = false;
+    let isScreen         = false;
+    let isVideo          = false;
+
 
     switch (type)
     {
       case mediaType.audio:
-        mediaConstraints = { audio: { deviceId: deviceId },  video: false };
-        audio            = true;
+        isAudio          = true;
+        mediaConstraints = { audio: { deviceId },  video: false };
       break;
 
       case mediaType.video:
+        isVideo          = true;
         mediaConstraints = {
           audio: false,
           video: {
-            width: {
-              min: 320,
-              max: 640,
-              ideal: 320
-            },
-            height: {
-              min: 180,
-              max: 360,
-              ideal: 180
-            },
-            deviceId: deviceId,
-            aspectRatio: {
-              ideal: 16/9
-            }
+            width:  { min: 320, ideal: 320, max: 640 },
+            height: { min: 180, ideal: 180, max: 360 },
+            deviceId,
+            aspectRatio: { ideal: 16 / 9 }
           }
         };
       break;
 
       case mediaType.screen:
+        isScreen         = true;
         mediaConstraints = false;
-        screen           = true;
       break;
 
       default:
-        return;
+        console.error('Invalid media type');
+      return;
     }
 
-    if (!this.device.canProduce('video') && !audio) {
+    if ( !this.device.canProduce('video') && !isAudio ) {
       console.error('Cannot produce video');
       return;
     }
 
-    if (this.producerLabel.has(type)) {
+    if ( this.producerLabel.has(type) ) {
       console.log('Producer already exists for this type ' + type);
       return;
     }
 
-    console.log('Mediacontraints:', mediaConstraints);
-
-    let stream;
+    console.log('Media constraints:', mediaConstraints);
 
     try {
-      stream = (screen==true) ? await navigator.mediaDevices.getDisplayMedia({ video: true,
-      }) : await navigator.mediaDevices.getUserMedia(mediaConstraints);
-      console.log( 'SupportedConstraints:', navigator.mediaDevices.getSupportedConstraints() );
+      const stream = (isScreen==true) ? await navigator.mediaDevices.getDisplayMedia({ video: true})
+          : await navigator.mediaDevices.getUserMedia(mediaConstraints);
 
-      const track  = (audio ==true) ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+      // console.log( 'SupportedConstraints:', navigator.mediaDevices.getSupportedConstraints() );
+      // console.log( 'Stream from getUserMedia:', stream);
+
+      const track  = (isAudio ==true) ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
       const params = { track };
-
-      if ( !audio && !screen )
-      {
-        params.encodings = [
-          {
-            rid: 'r0',
-            maxBitrate: 150000,
-            scaleResolutionDownBy: 1.0,
-            // scalabilityMode: 'S1T3',
-            // scalabilityMode: 'L3T3'
-          },
-        ];
-
-        params.codecOptions = {
-          videoGoogleStartBitrate: 150
-        };
-      };
-
-      producer = await this.producerTransport.produce(params);
-
-      this.producers.set(producer.id, producer);
 
       let element;
 
-      if (!audio)
-      {
+      if (!isAudio) {
         element              = document.createElement('video');
         element.srcObject    = stream;
-        element.id           = producer.id;
+        element.id           = 'localVideo';
         element.playsinline  = false;
         element.autoplay     = true;
         element.className    = 'vid';
         element.style.width = '100%';
+        element.classList.add("d-none");
 
         this.localMediaEl.appendChild(element);
-        this.handleFS(element.id);
       }
 
-      producer.on('trackended', () => {
-        this.closeProducer(type)
-      });
+      if(isVideo)
+      {
+        const croppedCanvas  = document.getElementById('croppedCanvas');
+        const videoSettings  = stream.getVideoTracks()[0].getSettings();
+        // console.log('videoSettings',videoSettings);
+
+        const videoWidth     = videoSettings.width || 320;
+        const videoHeight    = videoSettings.height || 180;
+        const cropWidth      = 320;
+        const cropHeight     = 180;
+        croppedCanvas.width  = cropWidth;
+        croppedCanvas.height = cropHeight;
+        const context        = croppedCanvas.getContext('2d');
+
+        const sourceAspectRatio = videoWidth / videoHeight;
+        const canvasAspectRatio = cropWidth / cropHeight;
+
+        let sourceX = 0, sourceY = 0, sourceWidth = videoWidth, sourceHeight = videoHeight;
+
+        if (sourceAspectRatio > canvasAspectRatio) {
+          sourceWidth = videoHeight * canvasAspectRatio;
+          sourceX = (videoWidth - sourceWidth) / 2;
+        } else {
+          sourceHeight = videoWidth / canvasAspectRatio;
+          sourceY = (videoHeight - sourceHeight) / 2;
+        }
+
+
+        const drawFrame = () => {
+          if ( !element.ended) {
+            context.drawImage(
+                element,
+                sourceX, sourceY, sourceWidth, sourceHeight,
+                0, 0, cropWidth, cropHeight
+            );
+
+            requestAnimationFrame(drawFrame);
+          }
+        };
+        drawFrame();
+
+        const croppedStream = croppedCanvas.captureStream(15);
+
+        if (!croppedStream) {
+          console.error("captureStream is not supported in this browser.");
+          return;
+        }
+
+        const canvasTrack   = croppedStream.getVideoTracks()[0];
+        params.track        = canvasTrack;
+        params.encodings    =[{ rid: 'r0', maxBitrate: 150000, scaleResolutionDownBy: 2.0 }];
+        params.codecOptions = { videoGoogleStartBitrate: 150 };
+      }
+
+      producer = await this.producerTransport.produce(params);
+      this.producers.set(producer.id, producer);
+
+      if (!isAudio) {
+        element.setAttribute('id', producer.id);
+        this.handleFS(producer.id);
+      }
+
+      producer.on('trackended', () => { this.closeProducer(type,true) });
 
       producer.on('transportclose', () => {
         console.log('Producer transport close');
 
-        if (!audio)
+        if (!isAudio)
         {
           element.srcObject.getTracks().forEach(function (track) { track.stop() });
           element.parentNode.removeChild(element);
         }
 
         this.producers.delete(producer.id);
-      })
+      });
 
       producer.on('close', () => {
         console.log('Closing producer');
 
-        if (!audio)
+        if (!isAudio)
         {
           element.srcObject.getTracks().forEach(function (track) { track.stop() });
           element.parentNode.removeChild(element);
         }
 
         this.producers.delete(producer.id);
-      })
+      });
       this.producerLabel.set(type, producer.id);
 
-      switch (type)
-      {
-        case mediaType.audio:
-          this.event(_EVENTS.startAudio);
-        break;
-
-        case mediaType.video:
-          this.event(_EVENTS.startVideo);
-        break;
-
-        case mediaType.screen:
-          this.event(_EVENTS.startScreen);
-        break;
-
-        default:
-          return;
-      }
+      const eventsMap = {
+        [mediaType.audio]: _EVENTS.startAudio,
+        [mediaType.video]: _EVENTS.startVideo,
+        [mediaType.screen]: _EVENTS.startScreen
+      };
+      this.event(eventsMap[type]);
     } catch (err) {
       console.log('Produce error:', err);
     }
@@ -391,7 +412,7 @@ class RoomClient {
       id: id,
       playsInline: false,
       autoplay: true,
-      className: kind === 'video' ? 'vid col-4 mb-1 prod-'+producer_id : '',
+      className: kind === 'video' ? 'vid  col-6 col-lg-4 mb-1 prod-'+producer_id : '',
     });
     return element;
   }
@@ -428,29 +449,33 @@ class RoomClient {
     };
   }
 
-  closeProducer(type) {
+  closeProducer(type,ownVideo=false) {
     if (!this.producerLabel.has(type)) {
-      console.log('There is no producer for this type ' + type)
-      return
+      console.log('There is no producer for this type ' + type);
+      return;
     }
 
-    let producer_id = this.producerLabel.get(type)
-    console.log('Close producer', producer_id,type)
+    let producer_id = this.producerLabel.get(type);
+    console.log('Close producer', producer_id,type);
 
-    this.socket.emit('producerClosed', {
-      producer_id
-    })
+    this.socket.emit('producerClosed', { producer_id });
 
-    this.producers.get(producer_id).close()
-    this.producers.delete(producer_id)
-    this.producerLabel.delete(type)
+    this.producers.get(producer_id).close();
+    this.producers.delete(producer_id);
+    this.producerLabel.delete(type);
 
     if (type !== mediaType.audio) {
-      let elem = document.getElementById(producer_id)
+      let elem = document.getElementById(producer_id);
       elem.srcObject.getTracks().forEach(function (track) {
-        track.stop()
+        track.stop();
       })
-      elem.parentNode.removeChild(elem)
+      elem.parentNode.removeChild(elem);
+    }
+
+    if (ownVideo) {
+      const croppedCanvas = document.getElementById('croppedCanvas');
+      const context       = croppedCanvas.getContext('2d');
+      context.clearRect(0, 0, croppedCanvas.width, croppedCanvas.height);
     }
 
     switch (type) {
@@ -509,8 +534,7 @@ class RoomClient {
   ///////  HELPERS //////////
 
   async roomInfo() {
-    let info = await this.socket.request('getMyRoomInfo');
-    return info;
+    return await this.socket.request('getMyRoomInfo');
   }
 
   static get mediaType() {
